@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Stock Count</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&family=Roboto+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="admin-body">
+
+<header class="app-header">
+  <div class="header-top">
+    <div class="brand">
+      <span class="brand-name">Admin</span>
+      <span class="brand-sub">Manager Review</span>
+    </div>
+    <button class="icon-btn" id="logoutBtn" hidden aria-label="Log out" title="Log out">
+      <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M16 13v-2H7V8l-5 4 5 4v-3h9Zm3-10H11v2h8v14h-8v2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2Z"/></svg>
+    </button>
+  </div>
+</header>
+
+<!-- ======================= LOGIN ======================= -->
+<main id="loginScreen">
+  <div class="login-card">
+    <h3>Manager Login</h3>
+    <input type="email" id="loginEmail" placeholder="Email" autocomplete="username">
+    <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password" style="margin-top:10px;">
+    <p class="modal-error" id="loginError"></p>
+    <button class="btn primary" id="loginSubmitBtn" style="margin-top:14px;width:100%;">Log In</button>
+  </div>
+</main>
+
+<!-- ======================= SESSION LIST ======================= -->
+<main id="sessionListScreen" hidden>
+  <p class="section-label">Submitted Counting Sessions</p>
+  <div id="sessionList"><p class="modal-text">Loading…</p></div>
+</main>
+
+<!-- ======================= REVIEW SCREEN ======================= -->
+<main id="reviewScreen" hidden>
+  <div class="product-screen-header">
+    <button class="back-btn" id="backToListBtn" aria-label="Back">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M15 5 7 12l8 7 1.4-1.4L9.8 12l6.6-5.6L15 5Z"/></svg>
+    </button>
+    <span class="current-category" id="reviewTitle">Review</span>
+  </div>
+  <p class="modal-text" id="reviewMeta"></p>
+
+  <div class="review-table" id="reviewTable"><!-- editable rows injected here --></div>
+
+  <button class="btn ghost-outline" id="addRowBtn" style="width:100%;margin-top:10px;">+ Add Row</button>
+
+  <div class="modal-actions" style="margin-top:20px;">
+    <button class="btn danger-outline" id="discardSessionBtn">Discard</button>
+    <button class="btn primary" id="confirmSaveBtn">Confirm &amp; Save</button>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <h3 id="confirmTitle">Are you sure?</h3>
+    <p id="confirmMessage" class="modal-text"></p>
+    <div class="modal-actions">
+      <button class="btn ghost" id="confirmCancelBtn">Cancel</button>
+      <button class="btn danger" id="confirmOkBtn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div class="loading-overlay" id="loadingOverlay" hidden><div class="spinner"></div></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="config.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>

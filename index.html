@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Stock Count</title>
+<meta name="theme-color" content="#0D47A1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&family=Roboto+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="app-header">
+  <div class="header-top">
+    <div class="brand">
+      <span class="brand-name" id="businessName">ANMOL ENTERPRISE</span>
+      <span class="brand-sub" id="systemName">STOCK COUNT SYSTEM</span>
+    </div>
+  </div>
+</header>
+
+<div class="sync-banner" id="syncBanner">Connecting…</div>
+
+<!-- ======================= SCREEN 1: CATEGORY SELECT ======================= -->
+<main id="categoryScreen">
+  <p class="section-label">Select Category</p>
+  <div class="category-grid" id="categoryGrid"><!-- category buttons injected here --></div>
+</main>
+
+<!-- ======================= SCREEN 2: PRODUCT LIST (inside a category) ======================= -->
+<main id="productScreen" hidden>
+  <div class="product-screen-header">
+    <button class="back-btn" id="backToCategoriesBtn" aria-label="Back to categories">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M15 5 7 12l8 7 1.4-1.4L9.8 12l6.6-5.6L15 5Z"/></svg>
+    </button>
+    <span class="current-category" id="currentCategoryLabel">PPF</span>
+  </div>
+
+  <div class="search-wrap">
+    <svg class="search-icon" viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="m21 21-5.2-5.2m1.7-4.8a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+    <input type="text" id="searchInput" placeholder="Search product..." autocomplete="off" autocorrect="off" spellcheck="false">
+    <button class="clear-btn" id="clearSearchBtn" aria-label="Clear search">&times;</button>
+  </div>
+
+  <ul class="product-list" id="productList"></ul>
+  <div class="empty-state" id="emptyState" hidden>
+    <p id="emptyStateText">No products in this category yet.</p>
+  </div>
+</main>
+
+<!-- ======================= BOTTOM ACTION BAR ======================= -->
+<nav class="bottom-bar" id="bottomBar" hidden>
+  <button class="bottom-btn" id="addProductBtn">
+    <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5Z"/></svg>
+    <span>Add Product</span>
+  </button>
+  <button class="bottom-btn primary" id="exportBtn">
+    <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M5 20h14v-2H5v2ZM11 4h2v9.2l3.6-3.6L18 11l-6 6-6-6 1.4-1.4L11 13.2V4Z"/></svg>
+    <span>Export</span>
+  </button>
+  <button class="bottom-btn danger" id="resetBtn">
+    <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M12 5V2L7 7l5 5V9a5 5 0 1 1-5 5H5a7 7 0 1 0 7-9Z"/></svg>
+    <span>Reset</span>
+  </button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<!-- ======================= MODAL: ADD PRODUCT ======================= -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <h3>Add Product</h3>
+    <input type="text" id="addProductInput" placeholder="Product name" autocomplete="off">
+    <p class="modal-error" id="addProductError"></p>
+    <div class="modal-actions">
+      <button class="btn ghost" data-close="addModal">Cancel</button>
+      <button class="btn primary" id="saveProductBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= MODAL: WORKER NAME + EXPORT ======================= -->
+<div class="modal-overlay" id="exportModal">
+  <div class="modal">
+    <h3>Export Count</h3>
+    <p class="modal-text" id="exportSummaryText"></p>
+    <input type="text" id="workerNameInput" placeholder="Worker Name" autocomplete="off">
+    <p class="modal-error" id="exportError"></p>
+    <div class="modal-actions">
+      <button class="btn ghost" data-close="exportModal">Cancel</button>
+      <button class="btn primary" id="confirmExportBtn">Export</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= MODAL: SUCCESS ======================= -->
+<div class="modal-overlay" id="successModal">
+  <div class="modal modal-center">
+    <div class="success-check">&#10003;</div>
+    <h3>Count Submitted Successfully</h3>
+    <div class="modal-actions">
+      <button class="btn primary" data-close="successModal">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= MODAL: CONFIRM (generic) ======================= -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <h3 id="confirmTitle">Are you sure?</h3>
+    <p id="confirmMessage" class="modal-text"></p>
+    <div class="modal-actions">
+      <button class="btn ghost" id="confirmCancelBtn">Cancel</button>
+      <button class="btn danger" id="confirmOkBtn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div class="loading-overlay" id="loadingOverlay" hidden><div class="spinner"></div></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="config.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
