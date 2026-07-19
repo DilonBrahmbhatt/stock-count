@@ -8,11 +8,18 @@ const state = {
   sessions: [],       // pending batches, live from Firestore
   sessionsUnsub: null,
   activeSession: null, // the session currently open in the review screen
-  editRows: []         // working copy of items for the review screen: {productId, name, count, originalName, deleted}
+  editRows: [],        // working copy of items for the review screen: {productId, name, count, originalName, deleted}
+
+  settings: { businessName: "", systemName: "", categories: [] },
+  settingsUnsub: null,
+  allProducts: [],      // every product, every category — for the Products manager
+  productsUnsub: null,
+  productsFilterCategory: null
 };
 
 const el = {
   logoutBtn: document.getElementById("logoutBtn"),
+  settingsBtn: document.getElementById("settingsBtn"),
 
   loginScreen: document.getElementById("loginScreen"),
   loginEmail: document.getElementById("loginEmail"),
@@ -31,6 +38,19 @@ const el = {
   addRowBtn: document.getElementById("addRowBtn"),
   discardSessionBtn: document.getElementById("discardSessionBtn"),
   confirmSaveBtn: document.getElementById("confirmSaveBtn"),
+
+  settingsScreen: document.getElementById("settingsScreen"),
+  backFromSettingsBtn: document.getElementById("backFromSettingsBtn"),
+  settingsBusinessName: document.getElementById("settingsBusinessName"),
+  settingsSystemName: document.getElementById("settingsSystemName"),
+  saveGeneralBtn: document.getElementById("saveGeneralBtn"),
+  categoryManageList: document.getElementById("categoryManageList"),
+  newCategoryInput: document.getElementById("newCategoryInput"),
+  addCategoryBtn: document.getElementById("addCategoryBtn"),
+  productsCategorySelect: document.getElementById("productsCategorySelect"),
+  productManageList: document.getElementById("productManageList"),
+  newProductInput: document.getElementById("newProductInput"),
+  addProductAdminBtn: document.getElementById("addProductAdminBtn"),
 
   toast: document.getElementById("toast"),
 
@@ -70,15 +90,36 @@ function showLoginScreen() {
   el.loginScreen.hidden = false;
   el.sessionListScreen.hidden = true;
   el.reviewScreen.hidden = true;
+  el.settingsScreen.hidden = true;
   el.logoutBtn.hidden = true;
+  el.settingsBtn.hidden = true;
 }
 function showSessionListScreen() {
   el.loginScreen.hidden = true;
   el.sessionListScreen.hidden = false;
   el.reviewScreen.hidden = true;
+  el.settingsScreen.hidden = true;
   el.logoutBtn.hidden = false;
+  el.settingsBtn.hidden = false;
   subscribeSessions();
+  subscribeSettings();
+  subscribeAllProducts();
 }
+
+el.settingsBtn.addEventListener("click", () => {
+  el.sessionListScreen.hidden = true;
+  el.reviewScreen.hidden = true;
+  el.settingsScreen.hidden = false;
+  el.settingsBusinessName.value = state.settings.businessName || "";
+  el.settingsSystemName.value = state.settings.systemName || "";
+  renderCategoryManageList();
+  renderProductsCategorySelect();
+  renderProductManageList();
+});
+el.backFromSettingsBtn.addEventListener("click", () => {
+  el.settingsScreen.hidden = true;
+  el.sessionListScreen.hidden = false;
+});
 
 el.loginSubmitBtn.addEventListener("click", async () => {
   el.loginError.textContent = "";
@@ -97,6 +138,8 @@ el.loginPassword.addEventListener("keydown", (e) => { if (e.key === "Enter") el.
 
 el.logoutBtn.addEventListener("click", async () => {
   if (state.sessionsUnsub) { state.sessionsUnsub(); state.sessionsUnsub = null; }
+  if (state.settingsUnsub) { state.settingsUnsub(); state.settingsUnsub = null; }
+  if (state.productsUnsub) { state.productsUnsub(); state.productsUnsub = null; }
   await firebase.auth().signOut();
 });
 
@@ -289,6 +332,202 @@ async function sendToSheet(category, items) {
     return { ok: false, error: "Couldn't reach Excel. Check your connection and try again." };
   }
 }
+
+/* ============================================================================
+   SETTINGS — General (business name / system name)
+   ============================================================================ */
+function subscribeSettings() {
+  if (state.settingsUnsub) return;
+  const ref = state.db.collection(CONFIG.settingsCollection).doc("app");
+  state.settingsUnsub = ref.onSnapshot((snap) => {
+    if (!snap.exists) return;
+    state.settings = snap.data();
+    if (!el.settingsScreen.hidden) {
+      el.settingsBusinessName.value = state.settings.businessName || "";
+      el.settingsSystemName.value = state.settings.systemName || "";
+      renderCategoryManageList();
+      renderProductsCategorySelect();
+    }
+  });
+}
+
+el.saveGeneralBtn.addEventListener("click", async () => {
+  const businessName = el.settingsBusinessName.value.trim();
+  const systemName = el.settingsSystemName.value.trim();
+  if (!businessName || !systemName) { showToast("Both fields are required."); return; }
+  await state.db.collection(CONFIG.settingsCollection).doc("app").update({ businessName, systemName });
+  showToast("Saved.");
+});
+
+/* ============================================================================
+   SETTINGS — Categories (add / rename with cascade / delete)
+   ============================================================================ */
+function renderCategoryManageList() {
+  const categories = state.settings.categories || [];
+  el.categoryManageList.innerHTML = "";
+  categories.forEach((cat) => {
+    const row = document.createElement("div");
+    row.className = "manage-row";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = cat;
+
+    const saveBtn = document.createElement("button");
+    saveBtn.className = "save-icon-btn";
+    saveBtn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7l-4-4Zm-5 16a3 3 0 1 1 0-6 3 3 0 0 1 0 6ZM7 8V4h8v4H7Z"/></svg>';
+    saveBtn.addEventListener("click", () => renameCategory(cat, input.value.trim()));
+
+    const delBtn = document.createElement("button");
+    delBtn.className = "delete-icon-btn";
+    delBtn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M6 7h12l-1 14H7L6 7Zm3-3h6l1 2H8l1-2Z"/></svg>';
+    delBtn.addEventListener("click", () => deleteCategory(cat));
+
+    row.appendChild(input);
+    row.appendChild(saveBtn);
+    row.appendChild(delBtn);
+    el.categoryManageList.appendChild(row);
+  });
+}
+
+async function renameCategory(oldName, newName) {
+  if (!newName) { showToast("Category name can't be empty."); return; }
+  const categories = state.settings.categories || [];
+  if (newName !== oldName && categories.some((c) => c.toLowerCase() === newName.toLowerCase())) {
+    showToast("That category already exists.");
+    return;
+  }
+  if (newName === oldName) return;
+
+  el.loadingOverlay.hidden = false;
+  try {
+    // Cascade: every product currently tagged with the old category name
+    // needs to move to the new name too, or it would silently disappear.
+    const snap = await state.db.collection(CONFIG.productsCollection).where("category", "==", oldName).get();
+    const batch = state.db.batch();
+    snap.docs.forEach((doc) => batch.update(doc.ref, { category: newName }));
+    const updatedCategories = categories.map((c) => (c === oldName ? newName : c));
+    batch.update(state.db.collection(CONFIG.settingsCollection).doc("app"), { categories: updatedCategories });
+    await batch.commit();
+    showToast(`Renamed to "${newName}".`);
+  } catch (err) {
+    console.error(err);
+    showToast("Couldn't rename. Check your connection.");
+  }
+  el.loadingOverlay.hidden = true;
+}
+
+function deleteCategory(name) {
+  const inUse = state.allProducts.filter((p) => p.category === name).length;
+  if (inUse > 0) {
+    showToast(`Can't delete — ${inUse} product(s) still use "${name}". Move or delete them first.`);
+    return;
+  }
+  confirmAction(`Delete "${name}"?`, "Workers will no longer see this category.", async () => {
+    const updated = (state.settings.categories || []).filter((c) => c !== name);
+    await state.db.collection(CONFIG.settingsCollection).doc("app").update({ categories: updated });
+    showToast("Category deleted.");
+  });
+}
+
+el.addCategoryBtn.addEventListener("click", async () => {
+  const name = el.newCategoryInput.value.trim();
+  if (!name) { showToast("Enter a category name."); return; }
+  const categories = state.settings.categories || [];
+  if (categories.some((c) => c.toLowerCase() === name.toLowerCase())) { showToast("That category already exists."); return; }
+  await state.db.collection(CONFIG.settingsCollection).doc("app").update({
+    categories: [...categories, name]
+  });
+  el.newCategoryInput.value = "";
+  showToast("Category added.");
+});
+
+/* ============================================================================
+   SETTINGS — Products (add / rename / delete, per category)
+   ============================================================================ */
+function subscribeAllProducts() {
+  if (state.productsUnsub) return;
+  state.productsUnsub = state.db.collection(CONFIG.productsCollection).orderBy("nameLower").onSnapshot((snapshot) => {
+    state.allProducts = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    if (!el.settingsScreen.hidden) renderProductManageList();
+  });
+}
+
+function renderProductsCategorySelect() {
+  const categories = state.settings.categories || [];
+  const prevValue = state.productsFilterCategory;
+  el.productsCategorySelect.innerHTML = categories.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+  state.productsFilterCategory = categories.includes(prevValue) ? prevValue : categories[0] || null;
+  if (state.productsFilterCategory) el.productsCategorySelect.value = state.productsFilterCategory;
+  renderProductManageList();
+}
+el.productsCategorySelect.addEventListener("change", () => {
+  state.productsFilterCategory = el.productsCategorySelect.value;
+  renderProductManageList();
+});
+
+function renderProductManageList() {
+  const list = state.allProducts.filter((p) => p.category === state.productsFilterCategory);
+  el.productManageList.innerHTML = "";
+  if (list.length === 0) {
+    el.productManageList.innerHTML = '<p class="modal-text">No products in this category yet.</p>';
+    return;
+  }
+  list.forEach((product) => {
+    const row = document.createElement("div");
+    row.className = "manage-row";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = product.name;
+
+    const saveBtn = document.createElement("button");
+    saveBtn.className = "save-icon-btn";
+    saveBtn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7l-4-4Zm-5 16a3 3 0 1 1 0-6 3 3 0 0 1 0 6ZM7 8V4h8v4H7Z"/></svg>';
+    saveBtn.addEventListener("click", () => renameProductAdmin(product, input.value.trim()));
+
+    const delBtn = document.createElement("button");
+    delBtn.className = "delete-icon-btn";
+    delBtn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M6 7h12l-1 14H7L6 7Zm3-3h6l1 2H8l1-2Z"/></svg>';
+    delBtn.addEventListener("click", () => deleteProductAdmin(product));
+
+    row.appendChild(input);
+    row.appendChild(saveBtn);
+    row.appendChild(delBtn);
+    el.productManageList.appendChild(row);
+  });
+}
+
+async function renameProductAdmin(product, newName) {
+  if (!newName) { showToast("Product name can't be empty."); return; }
+  const nameLower = newName.toLowerCase();
+  const dup = state.allProducts.some((p) => p.id !== product.id && p.category === product.category && p.nameLower === nameLower);
+  if (dup) { showToast("A product with that name already exists in this category."); return; }
+  await state.db.collection(CONFIG.productsCollection).doc(product.id).update({ name: newName, nameLower });
+  showToast("Product renamed.");
+}
+
+function deleteProductAdmin(product) {
+  confirmAction(`Delete "${product.name}"?`, "This removes it from the shared product list for every worker.", async () => {
+    await state.db.collection(CONFIG.productsCollection).doc(product.id).delete();
+    showToast("Product deleted.");
+  });
+}
+
+el.addProductAdminBtn.addEventListener("click", async () => {
+  const name = el.newProductInput.value.trim();
+  if (!name) { showToast("Enter a product name."); return; }
+  if (!state.productsFilterCategory) { showToast("Add a category first."); return; }
+  const nameLower = name.toLowerCase();
+  const dup = state.allProducts.some((p) => p.category === state.productsFilterCategory && p.nameLower === nameLower);
+  if (dup) { showToast("That product already exists in this category."); return; }
+  await state.db.collection(CONFIG.productsCollection).add({
+    name, nameLower, category: state.productsFilterCategory,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  el.newProductInput.value = "";
+  showToast("Product added.");
+});
 
 /* ============================================================================
    UI HELPERS
