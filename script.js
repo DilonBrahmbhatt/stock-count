@@ -8,7 +8,8 @@ const state = {
   category: null,          // currently selected category, or null = category screen
   searchTerm: "",
   usingDemoData: false,
-  db: null
+  db: null,
+  settings: { businessName: "", systemName: "", categories: [] }
 };
 
 const el = {
@@ -75,6 +76,8 @@ function initFirestore() {
     state.db = firebase.firestore();
     showSyncBanner("Connecting to shared product list…", false);
 
+    subscribeSettings();
+
     state.db.collection(CONFIG.productsCollection).orderBy("nameLower").onSnapshot(
       (snapshot) => {
         state.products = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
@@ -90,9 +93,33 @@ function initFirestore() {
   }
 }
 
+/* Business name, system name, and the category list all live in one
+   Firestore doc so the manager can edit them from Settings without any
+   code changes. The very first time the app ever runs (doc doesn't exist
+   yet), it's seeded from the defaults in config.js. */
+function subscribeSettings() {
+  const ref = state.db.collection(CONFIG.settingsCollection).doc("app");
+  ref.get().then((snap) => {
+    if (!snap.exists) {
+      ref.set({ businessName: CONFIG.businessName, systemName: CONFIG.systemName, categories: CONFIG.categories });
+    }
+  });
+  ref.onSnapshot((snap) => {
+    if (!snap.exists) return;
+    state.settings = snap.data();
+    el.businessName.textContent = state.settings.businessName;
+    el.systemName.textContent = state.settings.systemName;
+    renderCategoryGrid();
+  });
+}
+
 function startDemoMode() {
   state.usingDemoData = true;
   showSyncBanner("Demo mode — add your Firebase config in config.js to go live.", false);
+  state.settings = { businessName: CONFIG.businessName, systemName: CONFIG.systemName, categories: CONFIG.categories };
+  el.businessName.textContent = state.settings.businessName;
+  el.systemName.textContent = state.settings.systemName;
+  renderCategoryGrid();
   state.products = [
     { id: "d1", name: "BMW X5", nameLower: "bmw x5", category: "PPF" },
     { id: "d2", name: "BMW X7", nameLower: "bmw x7", category: "PPF" },
@@ -109,7 +136,7 @@ function startDemoMode() {
    ============================================================================ */
 function renderCategoryGrid() {
   el.categoryGrid.innerHTML = "";
-  CONFIG.categories.forEach((cat) => {
+  (state.settings.categories || []).forEach((cat) => {
     const btn = document.createElement("button");
     btn.className = "category-btn";
     btn.textContent = cat;
@@ -382,5 +409,4 @@ function confirmAction(title, message, onConfirm) {
    ============================================================================ */
 el.businessName.textContent = CONFIG.businessName;
 el.systemName.textContent = CONFIG.systemName;
-renderCategoryGrid();
 initFirestore();
