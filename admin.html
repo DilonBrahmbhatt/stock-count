@@ -18,6 +18,9 @@
       <span class="brand-name">Admin</span>
       <span class="brand-sub">Manager Review</span>
     </div>
+    <button class="icon-btn" id="settingsBtn" hidden aria-label="Settings" title="Settings">
+      <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm7.4-3.5c0 .3 0 .6-.05.9l2 1.6-2 3.4-2.4-1a7.6 7.6 0 0 1-1.6.9l-.35 2.5H9l-.35-2.5a7.6 7.6 0 0 1-1.6-.9l-2.4 1-2-3.4 2-1.6A6.8 6.8 0 0 1 4.6 12c0-.3 0-.6.05-.9l-2-1.6 2-3.4 2.4 1c.5-.4 1-.7 1.6-.9L9 3.7h6l.35 2.5c.6.2 1.1.5 1.6.9l2.4-1 2 3.4-2 1.6c.05.3.05.6.05.9Z"/></svg>
+    </button>
     <button class="icon-btn" id="logoutBtn" hidden aria-label="Log out" title="Log out">
       <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M16 13v-2H7V8l-5 4 5 4v-3h9Zm3-10H11v2h8v14h-8v2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2Z"/></svg>
     </button>
@@ -58,6 +61,42 @@
   <div class="modal-actions" style="margin-top:20px;">
     <button class="btn danger-outline" id="discardSessionBtn">Discard</button>
     <button class="btn primary" id="confirmSaveBtn">Confirm &amp; Save</button>
+  </div>
+</main>
+
+<!-- ======================= SETTINGS ======================= -->
+<main id="settingsScreen" hidden>
+  <div class="product-screen-header">
+    <button class="back-btn" id="backFromSettingsBtn" aria-label="Back">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M15 5 7 12l8 7 1.4-1.4L9.8 12l6.6-5.6L15 5Z"/></svg>
+    </button>
+    <span class="current-category">Settings</span>
+  </div>
+
+  <div class="settings-section">
+    <h3>General</h3>
+    <input type="text" id="settingsBusinessName" placeholder="Business Name">
+    <input type="text" id="settingsSystemName" placeholder="System Name" style="margin-top:8px;">
+    <button class="btn primary" id="saveGeneralBtn" style="width:100%;margin-top:10px;">Save</button>
+  </div>
+
+  <div class="settings-section">
+    <h3>Categories</h3>
+    <div id="categoryManageList"></div>
+    <div class="add-row">
+      <input type="text" id="newCategoryInput" placeholder="New category name">
+      <button class="btn primary" id="addCategoryBtn">Add</button>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <h3>Products</h3>
+    <select id="productsCategorySelect"></select>
+    <div id="productManageList" style="margin-top:10px;"></div>
+    <div class="add-row">
+      <input type="text" id="newProductInput" placeholder="New product name">
+      <button class="btn primary" id="addProductAdminBtn">Add</button>
+    </div>
   </div>
 </main>
 
