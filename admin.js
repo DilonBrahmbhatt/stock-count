@@ -339,6 +339,11 @@ async function sendToSheet(category, items) {
 function subscribeSettings() {
   if (state.settingsUnsub) return;
   const ref = state.db.collection(CONFIG.settingsCollection).doc("app");
+  ref.get().then((snap) => {
+    if (!snap.exists) {
+      ref.set({ businessName: CONFIG.businessName, systemName: CONFIG.systemName, categories: CONFIG.categories });
+    }
+  });
   state.settingsUnsub = ref.onSnapshot((snap) => {
     if (!snap.exists) return;
     state.settings = snap.data();
