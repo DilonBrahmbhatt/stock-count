@@ -14,12 +14,12 @@ const CONFIG = {
   // Fill these in from Firebase Project Settings > General > "Your apps".
   // Safe to leave public — access is controlled by Firestore Security Rules.
   firebase: {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyDtefCSc2pWU_rvRazFgEr9GPKiAp0Md5w",
+    authDomain: "anmol-stock-count.firebaseapp.com",
+    projectId: "anmol-stock-count",
+    storageBucket: "anmol-stock-count.firebasestorage.app",
+    messagingSenderId: "423074203911",
+    appId: "1:423074203911:web:8f3c733c84edbd211bdda2",
   },
 
   // The Web app URL from your Google Apps Script deployment.
