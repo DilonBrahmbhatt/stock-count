@@ -44,7 +44,6 @@ const el = {
 
   exportModal: document.getElementById("exportModal"),
   exportSummaryText: document.getElementById("exportSummaryText"),
-  workerNameInput: document.getElementById("workerNameInput"),
   exportError: document.getElementById("exportError"),
   confirmExportBtn: document.getElementById("confirmExportBtn"),
 
@@ -302,14 +301,13 @@ el.saveProductBtn.addEventListener("click", async () => {
 el.addProductInput.addEventListener("keydown", (e) => { if (e.key === "Enter") el.saveProductBtn.click(); });
 
 /* ============================================================================
-   EXPORT — worker name, then straight to "success", no approval language
+   EXPORT — one tap, then straight to "success", no approval language
    ============================================================================ */
 el.exportBtn.addEventListener("click", () => {
   const counted = getVisibleCategoryCounted();
   el.exportSummaryText.textContent = counted.length === 0
     ? "Nothing counted yet in this category."
     : `${counted.length} product(s) counted in ${state.category}.`;
-  el.workerNameInput.value = "";
   el.exportError.textContent = "";
   openModal(el.exportModal);
 });
@@ -323,11 +321,9 @@ function getVisibleCategoryCounted() {
 el.confirmExportBtn.addEventListener("click", async () => {
   const items = getVisibleCategoryCounted();
   if (items.length === 0) { el.exportError.textContent = "Nothing counted yet."; return; }
-  const workerName = normalizeName(el.workerNameInput.value);
-  if (!workerName) { el.exportError.textContent = "Enter your name."; return; }
 
   el.confirmExportBtn.disabled = true;
-  const result = await sendForReview(state.category, workerName, items);
+  const result = await sendForReview(state.category, items);
   el.confirmExportBtn.disabled = false;
 
   if (result.ok) {
@@ -341,11 +337,11 @@ el.confirmExportBtn.addEventListener("click", async () => {
   }
 });
 
-async function sendForReview(category, workerName, items) {
+async function sendForReview(category, items) {
   if (state.usingDemoData) return { ok: true }; // nothing to send to in demo mode
   try {
     await state.db.collection(CONFIG.pendingCollection).add({
-      category, workerName, items,
+      category, items,
       submittedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     return { ok: true };
