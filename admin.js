@@ -176,7 +176,7 @@ function renderSessionList() {
     card.className = "pending-batch-card";
     card.innerHTML = `
       <div class="pending-batch-header">
-        <strong>${escapeHtml(session.category)} · ${escapeHtml(session.workerName)}</strong>
+        <strong>${escapeHtml(session.category)}</strong>
         <span class="pending-batch-time">${time.toLocaleString()}</span>
       </div>
       <div class="pending-batch-items">
@@ -205,7 +205,8 @@ function openReview(session) {
   }));
 
   el.reviewTitle.textContent = session.category;
-  el.reviewMeta.textContent = `Worker: ${session.workerName}`;
+  const time = session.submittedAt && session.submittedAt.toDate ? session.submittedAt.toDate() : new Date();
+  el.reviewMeta.textContent = `Submitted ${time.toLocaleString()}`;
   renderReviewTable();
 
   el.sessionListScreen.hidden = true;
