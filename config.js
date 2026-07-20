@@ -23,7 +23,7 @@ const CONFIG = {
   },
 
   // The Web app URL from your Google Apps Script deployment.
-  sheetWebAppUrl: "PASTE_YOUR_GOOGLE_SHEETS_WEB_APP_URL_HERE",
+  sheetWebAppUrl: "https://script.google.com/macros/s/AKfycbxeua01EH1kY2IggqYNIc0fOoMCbocPhL_EbR-hsIjR-HOJvFYy86SdXmwbd3YD3JsfFQ/exec",
 
   productsCollection: "products",
   pendingCollection: "pendingBatches",
