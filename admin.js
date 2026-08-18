@@ -269,18 +269,26 @@ el.addRowBtn.addEventListener("click", () => {
    CONFIRM & SAVE  /  DISCARD
    ============================================================================ */
 el.confirmSaveBtn.addEventListener("click", async () => {
+  // Names are always saved in CAPITALS, no matter how they were typed/edited.
   const finalItems = state.editRows
     .filter((r) => !r.deleted && r.name.trim() && r.count > 0)
-    .map((r) => ({ productId: r.productId, name: r.name.trim(), count: r.count, originalName: r.originalName }));
+    .map((r) => ({
+      productId: r.productId,
+      name: r.name.trim().toUpperCase(),
+      count: r.count,
+      originalName: r.originalName
+    }));
 
   if (finalItems.length === 0) { showToast("Nothing to save — add at least one row."); return; }
+
+  const category = state.activeSession.category;
 
   el.confirmSaveBtn.disabled = true;
   el.loadingOverlay.hidden = false;
 
   // 1) Propagate any corrected names back to the shared master product list.
   for (const item of finalItems) {
-    if (item.productId && item.originalName && item.name !== item.originalName) {
+    if (item.productId && item.originalName && item.name !== item.originalName.toUpperCase()) {
       try {
         await state.db.collection(CONFIG.productsCollection).doc(item.productId).update({
           name: item.name,
@@ -293,16 +301,20 @@ el.confirmSaveBtn.addEventListener("click", async () => {
   }
 
   // 2) Write into the Google Sheet (this category's tab + master list mirror).
-  const sheetResult = await sendToSheet(state.activeSession.category, finalItems.map((i) => ({ name: i.name, count: i.count })));
+  const sheetResult = await sendToSheet(category, finalItems.map((i) => ({ name: i.name, count: i.count })));
 
   el.loadingOverlay.hidden = true;
   el.confirmSaveBtn.disabled = false;
 
   if (!sheetResult.ok) { showToast(sheetResult.error); return; }
 
-  // 3) Remove the session from the pending queue.
+  // 3) Generate and download the PDF stock count report for this category.
+  //    Every product in the category is listed — uncounted ones show 0, never blank.
+  downloadStockCountPdf(category, finalItems);
+
+  // 4) Remove the session from the pending queue.
   await state.db.collection(CONFIG.pendingCollection).doc(state.activeSession.id).delete();
-  showToast("Saved to Excel.");
+  showToast("Saved to Excel. PDF downloaded.");
   el.reviewScreen.hidden = true;
   el.sessionListScreen.hidden = false;
 });
@@ -332,6 +344,70 @@ async function sendToSheet(category, items) {
     console.error(err);
     return { ok: false, error: "Couldn't reach Excel. Check your connection and try again." };
   }
+}
+
+/* ============================================================================
+   PDF — full stock count report for the approved category
+   Every product in the category appears; uncounted ones show 0, never blank.
+   ============================================================================ */
+function downloadStockCountPdf(category, finalItems) {
+  if (!window.jspdf) { showToast("PDF library didn't load. Check your connection."); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  // Map of counted items from this approval, keyed by productId (or name for
+  // manually-added rows that have no productId).
+  const countMap = {};
+  finalItems.forEach((item) => {
+    const key = item.productId || ("name:" + item.name.toLowerCase());
+    countMap[key] = item.count;
+  });
+
+  const rows = [];
+  const coveredProductIds = new Set();
+
+  // Every product that belongs to this category, whether counted or not.
+  state.allProducts
+    .filter((p) => p.category === category)
+    .forEach((p) => {
+      const count = countMap[p.id] !== undefined ? countMap[p.id] : 0;
+      rows.push([p.name, String(count)]);
+      coveredProductIds.add(p.id);
+    });
+
+  // Any manually-added rows (no productId, e.g. typed fresh in Review) that
+  // aren't already part of the master list above.
+  finalItems.forEach((item) => {
+    if (item.productId && coveredProductIds.has(item.productId)) return;
+    if (!item.productId) rows.push([item.name, String(item.count)]);
+  });
+
+  rows.sort((a, b) => a[0].localeCompare(b[0]));
+
+  const businessName = state.settings.businessName || CONFIG.businessName;
+  const now = new Date();
+
+  doc.setFontSize(14);
+  doc.text(businessName, 14, 16);
+  doc.setFontSize(11);
+  doc.text(`Stock Count Report — ${category}`, 14, 24);
+  doc.setFontSize(9);
+  doc.setTextColor(120);
+  doc.text(`Generated: ${now.toLocaleString()}`, 14, 30);
+  doc.setTextColor(0);
+
+  doc.autoTable({
+    startY: 36,
+    head: [["Product", "Quantity"]],
+    body: rows,
+    styles: { fontSize: 10, cellPadding: 4 },
+    headStyles: { fillColor: [13, 71, 161], textColor: 255 },
+    columnStyles: { 1: { halign: "center", cellWidth: 30 } }
+  });
+
+  const fileSafeCategory = category.replace(/[^a-z0-9]+/gi, "_");
+  const fileSafeDate = now.toISOString().slice(0, 10);
+  doc.save(`StockCount_${fileSafeCategory}_${fileSafeDate}.pdf`);
 }
 
 /* ============================================================================
@@ -450,6 +526,7 @@ el.addCategoryBtn.addEventListener("click", async () => {
 
 /* ============================================================================
    SETTINGS — Products (add / rename / delete, per category)
+   Names are always saved in CAPITALS, no matter how the admin types them.
    ============================================================================ */
 function subscribeAllProducts() {
   if (state.productsUnsub) return;
@@ -506,6 +583,7 @@ function renderProductManageList() {
 
 async function renameProductAdmin(product, newName) {
   if (!newName) { showToast("Product name can't be empty."); return; }
+  newName = newName.toUpperCase();
   const nameLower = newName.toLowerCase();
   const dup = state.allProducts.some((p) => p.id !== product.id && p.category === product.category && p.nameLower === nameLower);
   if (dup) { showToast("A product with that name already exists in this category."); return; }
@@ -521,7 +599,7 @@ function deleteProductAdmin(product) {
 }
 
 el.addProductAdminBtn.addEventListener("click", async () => {
-  const name = el.newProductInput.value.trim();
+  const name = el.newProductInput.value.trim().toUpperCase();
   if (!name) { showToast("Enter a product name."); return; }
   if (!state.productsFilterCategory) { showToast("Add a category first."); return; }
   const nameLower = name.toLowerCase();
