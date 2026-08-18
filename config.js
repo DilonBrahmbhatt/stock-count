@@ -10,7 +10,6 @@
 const CONFIG = {
   businessName: "ANMOL ENTERPRISE",
   systemName: "STOCK COUNT SYSTEM",
-
   // Fill these in from Firebase Project Settings > General > "Your apps".
   // Safe to leave public — access is controlled by Firestore Security Rules.
   firebase: {
@@ -21,15 +20,9 @@ const CONFIG = {
     messagingSenderId: "423074203911",
     appId: "1:423074203911:web:8f3c733c84edbd211bdda2",
   },
-
-  // The Web app URL from your Google Apps Script deployment.
-  sheetWebAppUrl: "https://script.google.com/macros/s/AKfycbxeua01EH1kY2IggqYNIc0fOoMCbocPhL_EbR-hsIjR-HOJvFYy86SdXmwbd3YD3JsfFQ/exec",
-
   productsCollection: "products",
   pendingCollection: "pendingBatches",
   settingsCollection: "settings",
-
-  // Every product permanently belongs to exactly one of these. Each name
-  // here also becomes the name of its matching tab in your Google Sheet.
+  // Every product permanently belongs to exactly one of these.
   categories: ["PPF", "PRICUT", "CERAMIC COATING", "TOOLS", "ACCESSORIES", "OTHERS"]
 };
