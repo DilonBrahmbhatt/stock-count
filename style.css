@@ -255,6 +255,7 @@ main { padding: 16px; }
 }
 .manage-row input[type="text"] {
   border: 1px solid var(--border); border-radius: 6px; padding: 9px; font-size: 14px; color: var(--text);
+  text-transform: uppercase;
 }
 .manage-row button {
   border: none; width: 36px; height: 36px; border-radius: 8px; cursor: pointer;
@@ -267,6 +268,8 @@ main { padding: 16px; }
 .add-row input { flex: 1; }
 .add-row button { padding: 11px 16px; flex: 0 0 auto; }
 
+#newProductInput { text-transform: uppercase; }
+
 /* ============================ ADMIN: REVIEW TABLE ============================ */
 .review-table { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 .review-row {
@@ -276,6 +279,7 @@ main { padding: 16px; }
 .review-name-input, .review-qty-input {
   border: 1px solid var(--border); border-radius: 6px; padding: 8px; font-size: 14px; color: var(--text);
 }
+.review-name-input { text-transform: uppercase; }
 .review-qty-input { text-align: center; font-family: var(--font-num); }
 .review-delete-btn {
   border: none; background: var(--danger-soft); color: var(--danger);
