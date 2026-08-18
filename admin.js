@@ -267,6 +267,8 @@ el.addRowBtn.addEventListener("click", () => {
 
 /* ============================================================================
    CONFIRM & SAVE  /  DISCARD
+   Save flow: rename propagation -> generate & download PDF -> remove session.
+   (No external Sheet sync anymore — PDF is the only output.)
    ============================================================================ */
 el.confirmSaveBtn.addEventListener("click", async () => {
   // Names are always saved in CAPITALS, no matter how they were typed/edited.
@@ -300,51 +302,29 @@ el.confirmSaveBtn.addEventListener("click", async () => {
     }
   }
 
-  // 2) Write into the Google Sheet (this category's tab + master list mirror).
-  const sheetResult = await sendToSheet(category, finalItems.map((i) => ({ name: i.name, count: i.count })));
+  // 2) Generate and download the PDF stock count report for this category.
+  //    Every product in the category is listed — uncounted ones show 0, never blank.
+  downloadStockCountPdf(category, finalItems);
+
+  // 3) Remove the session from the pending queue.
+  await state.db.collection(CONFIG.pendingCollection).doc(state.activeSession.id).delete();
 
   el.loadingOverlay.hidden = true;
   el.confirmSaveBtn.disabled = false;
 
-  if (!sheetResult.ok) { showToast(sheetResult.error); return; }
-
-  // 3) Generate and download the PDF stock count report for this category.
-  //    Every product in the category is listed — uncounted ones show 0, never blank.
-  downloadStockCountPdf(category, finalItems);
-
-  // 4) Remove the session from the pending queue.
-  await state.db.collection(CONFIG.pendingCollection).doc(state.activeSession.id).delete();
-  showToast("Saved to Excel. PDF downloaded.");
+  showToast("PDF downloaded.");
   el.reviewScreen.hidden = true;
   el.sessionListScreen.hidden = false;
 });
 
 el.discardSessionBtn.addEventListener("click", () => {
-  confirmAction("Discard this session?", "It will be removed and nothing will be saved to Excel.", async () => {
+  confirmAction("Discard this session?", "It will be removed and no PDF will be generated.", async () => {
     await state.db.collection(CONFIG.pendingCollection).doc(state.activeSession.id).delete();
     showToast("Session discarded.");
     el.reviewScreen.hidden = true;
     el.sessionListScreen.hidden = false;
   });
 });
-
-async function sendToSheet(category, items) {
-  if (!CONFIG.sheetWebAppUrl || CONFIG.sheetWebAppUrl.startsWith("PASTE_")) {
-    return { ok: false, error: "Excel sync isn't set up yet. Add the Sheet link in config.js." };
-  }
-  try {
-    await fetch(CONFIG.sheetWebAppUrl, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ category, items })
-    });
-    return { ok: true };
-  } catch (err) {
-    console.error(err);
-    return { ok: false, error: "Couldn't reach Excel. Check your connection and try again." };
-  }
-}
 
 /* ============================================================================
    PDF — full stock count report for the approved category
