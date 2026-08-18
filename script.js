@@ -210,6 +210,8 @@ function buildProductCard(product) {
   const valueSpan = document.createElement("span");
   valueSpan.className = "count-value";
   valueSpan.textContent = count;
+  valueSpan.setAttribute("aria-label", "Tap to type exact quantity");
+  valueSpan.addEventListener("click", () => startEditingCount(product.id, li, valueSpan));
 
   const plusBtn = document.createElement("button");
   plusBtn.className = "count-btn plus";
@@ -234,11 +236,52 @@ function changeCount(productId, delta, cardEl) {
   if (next === current) return;
   state.counts[productId] = next;
   const valueSpan = cardEl.querySelector(".count-value");
+  if (!valueSpan) return; // currently in "type a number" mode
   valueSpan.textContent = next;
   valueSpan.classList.remove("bump");
   void valueSpan.offsetWidth;
   valueSpan.classList.add("bump");
   cardEl.classList.toggle("has-count", next > 0);
+}
+
+/* Tap the number itself to type an exact quantity (e.g. 3, 4, 12) instead
+   of tapping + repeatedly. The +/- buttons keep working as before. */
+function startEditingCount(productId, cardEl, valueSpan) {
+  if (cardEl.classList.contains("editing")) return;
+  cardEl.classList.add("editing");
+
+  const input = document.createElement("input");
+  input.type = "number";
+  input.inputMode = "numeric";
+  input.min = "0";
+  input.className = "count-input";
+  input.value = state.counts[productId] || 0;
+  valueSpan.replaceWith(input);
+  input.focus();
+  input.select();
+
+  let done = false;
+  const commit = () => {
+    if (done) return;
+    done = true;
+
+    let next = parseInt(input.value, 10);
+    if (isNaN(next) || next < 0) next = 0;
+    state.counts[productId] = next;
+
+    const newSpan = document.createElement("span");
+    newSpan.className = "count-value";
+    newSpan.textContent = next;
+    newSpan.setAttribute("aria-label", "Tap to type exact quantity");
+    newSpan.addEventListener("click", () => startEditingCount(productId, cardEl, newSpan));
+    input.replaceWith(newSpan);
+
+    cardEl.classList.remove("editing");
+    cardEl.classList.toggle("has-count", next > 0);
+  };
+
+  input.addEventListener("blur", commit);
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
 }
 
 el.searchInput.addEventListener("input", () => {
