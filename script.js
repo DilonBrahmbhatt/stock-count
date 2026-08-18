@@ -61,7 +61,8 @@ const el = {
 /* ============================================================================
    FIRESTORE (shared product list)
    ============================================================================ */
-function normalizeName(raw) { return raw.trim().replace(/\s+/g, " "); }
+// Names are always saved in CAPITALS, no matter how staff type them.
+function normalizeName(raw) { return raw.trim().replace(/\s+/g, " ").toUpperCase(); }
 
 function isFirebaseConfigured() {
   const f = CONFIG.firebase;
@@ -305,7 +306,7 @@ function productExists(nameLower, category) {
 }
 
 async function addProduct(rawName) {
-  const name = normalizeName(rawName);
+  const name = normalizeName(rawName); // always CAPITALS
   if (!name) return { ok: false, error: "Enter a product name." };
   const nameLower = name.toLowerCase();
   if (productExists(nameLower, state.category)) return { ok: false, error: "Product already exists." };
