@@ -1,5 +1,7 @@
 /* ============================================================================
    STOCK COUNT — admin.js (manager page)
+   Runs fully independent of any Google Sheet. Approving a session:
+   propagates renames -> generates & downloads a PDF -> removes the session.
    ============================================================================ */
 
 const state = {
@@ -267,8 +269,7 @@ el.addRowBtn.addEventListener("click", () => {
 
 /* ============================================================================
    CONFIRM & SAVE  /  DISCARD
-   Save flow: rename propagation -> generate & download PDF -> remove session.
-   (No external Sheet sync anymore — PDF is the only output.)
+   No network call outside Firebase. No Google Sheet involved anywhere.
    ============================================================================ */
 el.confirmSaveBtn.addEventListener("click", async () => {
   // Names are always saved in CAPITALS, no matter how they were typed/edited.
@@ -284,37 +285,43 @@ el.confirmSaveBtn.addEventListener("click", async () => {
   if (finalItems.length === 0) { showToast("Nothing to save — add at least one row."); return; }
 
   const category = state.activeSession.category;
+  const sessionId = state.activeSession.id;
 
   el.confirmSaveBtn.disabled = true;
   el.loadingOverlay.hidden = false;
 
-  // 1) Propagate any corrected names back to the shared master product list.
-  for (const item of finalItems) {
-    if (item.productId && item.originalName && item.name !== item.originalName.toUpperCase()) {
-      try {
-        await state.db.collection(CONFIG.productsCollection).doc(item.productId).update({
-          name: item.name,
-          nameLower: item.name.toLowerCase()
-        });
-      } catch (err) {
-        console.error("Rename propagation failed for", item.name, err);
+  try {
+    // 1) Propagate any corrected names back to the shared master product list.
+    for (const item of finalItems) {
+      if (item.productId && item.originalName && item.name !== item.originalName.toUpperCase()) {
+        try {
+          await state.db.collection(CONFIG.productsCollection).doc(item.productId).update({
+            name: item.name,
+            nameLower: item.name.toLowerCase()
+          });
+        } catch (err) {
+          console.error("Rename propagation failed for", item.name, err);
+        }
       }
     }
+
+    // 2) Generate and download the PDF stock count report for this category.
+    //    Every product in the category is listed — uncounted ones show 0, never blank.
+    downloadStockCountPdf(category, finalItems);
+
+    // 3) Remove the session from the pending queue.
+    await state.db.collection(CONFIG.pendingCollection).doc(sessionId).delete();
+
+    showToast("PDF downloaded.");
+    el.reviewScreen.hidden = true;
+    el.sessionListScreen.hidden = false;
+  } catch (err) {
+    console.error(err);
+    showToast("Something went wrong. Check your connection and try again.");
   }
-
-  // 2) Generate and download the PDF stock count report for this category.
-  //    Every product in the category is listed — uncounted ones show 0, never blank.
-  downloadStockCountPdf(category, finalItems);
-
-  // 3) Remove the session from the pending queue.
-  await state.db.collection(CONFIG.pendingCollection).doc(state.activeSession.id).delete();
 
   el.loadingOverlay.hidden = true;
   el.confirmSaveBtn.disabled = false;
-
-  showToast("PDF downloaded.");
-  el.reviewScreen.hidden = true;
-  el.sessionListScreen.hidden = false;
 });
 
 el.discardSessionBtn.addEventListener("click", () => {
@@ -573,50 +580,3 @@ async function renameProductAdmin(product, newName) {
 
 function deleteProductAdmin(product) {
   confirmAction(`Delete "${product.name}"?`, "This removes it from the shared product list for every worker.", async () => {
-    await state.db.collection(CONFIG.productsCollection).doc(product.id).delete();
-    showToast("Product deleted.");
-  });
-}
-
-el.addProductAdminBtn.addEventListener("click", async () => {
-  const name = el.newProductInput.value.trim().toUpperCase();
-  if (!name) { showToast("Enter a product name."); return; }
-  if (!state.productsFilterCategory) { showToast("Add a category first."); return; }
-  const nameLower = name.toLowerCase();
-  const dup = state.allProducts.some((p) => p.category === state.productsFilterCategory && p.nameLower === nameLower);
-  if (dup) { showToast("That product already exists in this category."); return; }
-  await state.db.collection(CONFIG.productsCollection).add({
-    name, nameLower, category: state.productsFilterCategory,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  });
-  el.newProductInput.value = "";
-  showToast("Product added.");
-});
-
-/* ============================================================================
-   UI HELPERS
-   ============================================================================ */
-function escapeHtml(str) {
-  return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-}
-let toastTimer = null;
-function showToast(message) {
-  el.toast.textContent = message;
-  el.toast.classList.add("show");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.toast.classList.remove("show"), 2200);
-}
-function confirmAction(title, message, onConfirm) {
-  el.confirmTitle.textContent = title;
-  el.confirmMessage.textContent = message;
-  el.confirmModal.classList.add("show");
-  const okHandler = () => {
-    el.confirmModal.classList.remove("show");
-    el.confirmOkBtn.removeEventListener("click", okHandler);
-    onConfirm();
-  };
-  el.confirmOkBtn.addEventListener("click", okHandler);
-}
-el.confirmCancelBtn.addEventListener("click", () => el.confirmModal.classList.remove("show"));
-
-init();
